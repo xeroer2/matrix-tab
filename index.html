@@ -18,12 +18,19 @@
       }
 
       canvas {
+        position: fixed;
+        inset: 0;
         display: block;
+      }
+
+      #nameLayer {
+        pointer-events: none;
       }
     </style>
   </head>
   <body>
-    <canvas id="matrix"></canvas>
+    <canvas id="rainLayer"></canvas>
+    <canvas id="nameLayer"></canvas>
     <script src="index.js"></script>
   </body>
 </html>

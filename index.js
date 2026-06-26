@@ -1,5 +1,8 @@
-const canvas = document.getElementById("matrix");
-const ctx = canvas.getContext("2d");
+const rainCanvas = document.getElementById("rainLayer");
+const nameCanvas = document.getElementById("nameLayer");
+
+const rainCtx = rainCanvas.getContext("2d");
+const nameCtx = nameCanvas.getContext("2d");
 
 let width;
 let height;
@@ -13,22 +16,26 @@ let lastTime = 0;
 let rainAccumulator = 0;
 
 // Bigger = slower. This controls BOTH normal rain and the JOSH letters.
-// v4 was 105. This is slightly faster while staying synced.
 const rainFrameMs = 88;
 
 const nameText = "JOSH";
 let name;
 
-const ticksBetweenLetters = 7;    // pause before next letter starts
-const holdTicks = 38;             // how long completed JOSH stays in middle
-const releaseStaggerTicks = 5;    // letters start dropping away separately
+const ticksBetweenLetters = 7;
+const holdTicks = 38;
+const releaseStaggerTicks = 5;
 const resetDelayTicks = 48;
 
 let globalTick = 0;
 
 function resize() {
-  width = canvas.width = window.innerWidth;
-  height = canvas.height = window.innerHeight;
+  width = window.innerWidth;
+  height = window.innerHeight;
+
+  rainCanvas.width = width;
+  rainCanvas.height = height;
+  nameCanvas.width = width;
+  nameCanvas.height = height;
 
   columns = Math.floor(width / fontSize);
   drops = [];
@@ -36,6 +43,9 @@ function resize() {
   for (let i = 0; i < columns; i++) {
     drops[i] = Math.floor(Math.random() * -height / fontSize);
   }
+
+  rainCtx.fillStyle = "black";
+  rainCtx.fillRect(0, 0, width, height);
 
   resetName();
 }
@@ -74,12 +84,12 @@ function resetName() {
 resize();
 
 function drawRainTick() {
-  ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
-  ctx.fillRect(0, 0, width, height);
+  rainCtx.fillStyle = "rgba(0, 0, 0, 0.12)";
+  rainCtx.fillRect(0, 0, width, height);
 
-  ctx.font = `${fontSize}px monospace`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
+  rainCtx.font = `${fontSize}px monospace`;
+  rainCtx.textAlign = "left";
+  rainCtx.textBaseline = "alphabetic";
 
   for (let i = 0; i < drops.length; i++) {
     const text = randomRainChar();
@@ -87,12 +97,12 @@ function drawRainTick() {
     const y = drops[i] * fontSize;
 
     if (Math.random() > 0.982) {
-      ctx.fillStyle = "rgba(170, 255, 170, 0.72)";
+      rainCtx.fillStyle = "rgba(170, 255, 170, 0.72)";
     } else {
-      ctx.fillStyle = "rgba(0, 210, 60, 0.58)";
+      rainCtx.fillStyle = "rgba(0, 210, 60, 0.58)";
     }
 
-    ctx.fillText(text, x, y);
+    rainCtx.fillText(text, x, y);
 
     if (y > height && Math.random() > 0.982) {
       drops[i] = Math.floor(Math.random() * -20);
@@ -109,9 +119,6 @@ function updateNameTick() {
     if (letter) {
       if (letter.row < letter.targetRow) {
         letter.row++;
-
-        // While falling, it behaves like the rest of the rain: the symbol changes.
-        // It only becomes J/O/S/H when it locks into the centre.
         letter.displayChar = randomRainChar();
       } else {
         letter.row = letter.targetRow;
@@ -133,7 +140,6 @@ function updateNameTick() {
   } else if (name.phase === "holding") {
     name.holdTicks++;
 
-    // Very subtle flicker while held, but it stays readable as JOSH.
     for (const letter of name.letters) {
       letter.displayChar = letter.finalChar;
     }
@@ -153,8 +159,6 @@ function updateNameTick() {
       if (name.releaseTicks > i * releaseStaggerTicks) {
         letter.released = true;
         letter.row++;
-
-        // Once released, it dissolves back into normal Matrix characters.
         letter.displayChar = randomRainChar();
       }
 
@@ -177,10 +181,14 @@ function updateNameTick() {
 }
 
 function drawName() {
-  ctx.save();
-  ctx.font = `bold ${fontSize}px monospace`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
+  // This is the important fix:
+  // JOSH is on its own transparent layer, so stationary letters do not build up a glow/smudge.
+  nameCtx.clearRect(0, 0, width, height);
+
+  nameCtx.save();
+  nameCtx.font = `bold ${fontSize}px monospace`;
+  nameCtx.textAlign = "left";
+  nameCtx.textBaseline = "alphabetic";
 
   for (let i = 0; i < name.letters.length; i++) {
     const letter = name.letters[i];
@@ -195,23 +203,23 @@ function drawName() {
     const isLocked = letter.locked && name.phase !== "releasing";
     const flicker = Math.random() > 0.9;
 
-    ctx.shadowBlur = isLocked ? 5 : 4;
-    ctx.shadowColor = "rgba(0, 255, 80, 0.32)";
+    nameCtx.shadowBlur = isLocked ? 3 : 4;
+    nameCtx.shadowColor = "rgba(0, 255, 80, 0.28)";
 
     if (isLocked) {
-      ctx.fillStyle = flicker
-        ? "rgba(145, 255, 145, 0.52)"
-        : "rgba(45, 230, 80, 0.64)";
+      nameCtx.fillStyle = flicker
+        ? "rgba(145, 255, 145, 0.48)"
+        : "rgba(45, 230, 80, 0.60)";
     } else {
-      ctx.fillStyle = flicker
-        ? "rgba(150, 255, 150, 0.50)"
-        : "rgba(0, 210, 60, 0.58)";
+      nameCtx.fillStyle = flicker
+        ? "rgba(150, 255, 150, 0.48)"
+        : "rgba(0, 210, 60, 0.56)";
     }
 
-    ctx.fillText(letter.displayChar, x, y);
+    nameCtx.fillText(letter.displayChar, x, y);
   }
 
-  ctx.restore();
+  nameCtx.restore();
 }
 
 function tick() {
@@ -234,6 +242,4 @@ function animate(now) {
   requestAnimationFrame(animate);
 }
 
-ctx.fillStyle = "black";
-ctx.fillRect(0, 0, width, height);
 requestAnimationFrame(animate);
